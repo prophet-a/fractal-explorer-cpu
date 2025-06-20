@@ -27,10 +27,12 @@
 
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
+  const offscreen = document.createElement('canvas');
+  const offctx = offscreen.getContext('2d');
 
   let centerX = -0.5, centerY = 0;
   let scale = 3;
-  const maxIter = 200;
+  const maxIterBase = 300;
 
   const palettes = buildPalettes();
   let paletteIndex = 0;
@@ -90,24 +92,32 @@
   canvas.addEventListener('wheel',e=>{e.preventDefault(); zoom(e.deltaY>0?1.2:1/1.2,e.clientX,e.clientY); render();},{passive:false});
 
   function render(){
-    const w=canvas.width,h=canvas.height;
-    const img=ctx.createImageData(w,h);
-    const data=img.data;
-    const palette=palettes[paletteIndex];
-    for(let y=0;y<h;y++){
-      for(let x=0;x<w;x++){
-        let zx=0,zy=0; let cx=(x/w-0.5)*scale+centerX; let cy=(y/h-0.5)*scale+centerY;
+    const w = canvas.width, h = canvas.height;
+    const factor = Math.max(1, Math.floor(scale));
+    const rw = Math.max(1, Math.floor(w / factor));
+    const rh = Math.max(1, Math.floor(h / factor));
+    offscreen.width = rw;
+    offscreen.height = rh;
+    const img = offctx.createImageData(rw, rh);
+    const data = img.data;
+    const iterMax = Math.max(64, Math.min(1000, Math.floor(maxIterBase / Math.pow(scale, 0.3))));
+    const palette = palettes[paletteIndex];
+    for(let y=0;y<rh;y++){
+      for(let x=0;x<rw;x++){
+        let zx=0,zy=0; let cx=(x/rw-0.5)*scale+centerX; let cy=(y/rh-0.5)*scale+centerY;
         let iter=0;
-        while(zx*zx+zy*zy<4 && iter<maxIter){ let xt=zx*zx-zy*zy+cx; zy=2*zx*zy+cy; zx=xt; iter++; }
-        const idx=(y*w+x)*4;
-        if(iter==maxIter){ data[idx]=data[idx+1]=data[idx+2]=0; data[idx+3]=255; }
+        while(zx*zx+zy*zy<4 && iter<iterMax){ let xt=zx*zx-zy*zy+cx; zy=2*zx*zy+cy; zx=xt; iter++; }
+        const idx=(y*rw+x)*4;
+        if(iter==iterMax){ data[idx]=data[idx+1]=data[idx+2]=0; data[idx+3]=255; }
         else{
-          const c=palette[Math.floor(iter*255/maxIter)];
+          const c=palette[Math.floor(iter*255/iterMax)];
           data[idx]=c[0]; data[idx+1]=c[1]; data[idx+2]=c[2]; data[idx+3]=255;
         }
       }
     }
-    ctx.putImageData(img,0,0);
+    offctx.putImageData(img,0,0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(offscreen,0,0,w,h);
   }
 })();
 </script>
