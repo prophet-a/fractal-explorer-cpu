@@ -214,15 +214,25 @@ def create_set_buttons(explorer: CPUFractalExplorer):
         y -= 0.12
 
 # -----------------------------------------------------------------------------
-#  Scene setup -----------------------------------------------------------------
-# -----------------------------------------------------------------------------
-app = Ursina(borderless=False, title='Fractal Explorer CPU – 2-D')
-window.color = color.black
-
-explorer = CPUFractalExplorer()
-create_set_buttons(explorer)
-
-Text('Scroll – Zoom | Drag – Pan | C – Palette | B – Back | R – Reset', origin=(0, -0.5), position=(0, -0.48), scale=1.0, color=color.white)
-info_text = Text(origin=(-0.5, 0.5), position=(-window.aspect_ratio / 2 + 0.02, 0.46), scale=1.0)
-
-app.run()
+if __name__ == "__main__":
+    #  Scene setup -----------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # Detect headless environments and use an offscreen window if no display is available
+    
+    import os
+    import sys
+    window_type="onscreen"
+    if not os.environ.get("DISPLAY"):
+        print("No display available; cannot create graphical window.", file=sys.stderr)
+        sys.exit(0)
+    
+    app = Ursina(window_type=window_type, borderless=False, title='Fractal Explorer CPU – 2-D')
+    window.color = color.black
+    
+    explorer = CPUFractalExplorer()
+    create_set_buttons(explorer)
+    
+    Text('Scroll – Zoom | Drag – Pan | C – Palette | B – Back | R – Reset', origin=(0, -0.5), position=(0, -0.48), scale=1.0, color=color.white)
+    info_text = Text(origin=(-0.5, 0.5), position=(-window.aspect_ratio / 2 + 0.02, 0.46), scale=1.0)
+    
+    app.run()
