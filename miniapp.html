@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fractal Explorer Mini App</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+ html, body { margin:0; padding:0; height:100%; overflow:hidden; }
+ body.dark { background:#000; color:#fff; }
+ body.light { background:#fff; color:#000; }
+ #canvas { width:100%; height:100%; display:block; }
+</style>
+</head>
+<body class="light">
+<canvas id="canvas"></canvas>
+<script>
+(() => {
+  const tg = window.Telegram.WebApp;
+  tg.ready();
+
+  function updateTheme() {
+    document.body.className = tg.colorScheme === 'dark' ? 'dark' : 'light';
+  }
+  updateTheme();
+  tg.onEvent('themeChanged', updateTheme);
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  let centerX = -0.5, centerY = 0;
+  let scale = 3;
+  const maxIter = 200;
+
+  const palettes = buildPalettes();
+  let paletteIndex = 0;
+
+  function buildPalettes(){
+    const n=256;
+    const p=[[],[],[],[]];
+    for(let i=0;i<n;i++){
+      const t=i/(n-1);
+      p[0][i]=hsvToRgb((t*360)%360,1,1); // rainbow
+      p[1][i]=[Math.pow(t,0.8)*255, Math.pow(t*t,0.9)*255, Math.pow(t*t*t,1.0)*255];
+      const r=0.5+0.5*Math.cos(2*Math.PI*(t+0));
+      const g=0.5+0.5*Math.cos(2*Math.PI*(t*0.7+0.15));
+      const b=0.5+0.5*Math.cos(2*Math.PI*(t*0.4+0.20));
+      p[2][i]=[r*255,g*255,b*255];
+      p[3][i]=[t*255,t*255,t*255];
+    }
+    return p;
+  }
+
+  function hsvToRgb(h,s,v){
+    let c=v*s;
+    let x=c*(1-Math.abs((h/60)%2-1));
+    let m=v-c;
+    let r=0,g=0,b=0;
+    if(h<60){r=c;g=x;}else if(h<120){r=x;g=c;}else if(h<180){g=c;b=x;}else if(h<240){g=x;b=c;}else if(h<300){r=x;b=c;}else{r=c;b=x;}
+    return [(r+m)*255,(g+m)*255,(b+m)*255];
+  }
+
+  tg.MainButton.setText('Palette').show();
+  tg.MainButton.onClick(() => { paletteIndex = (paletteIndex+1)%palettes.length; render(); });
+  tg.BackButton.show();
+  tg.BackButton.onClick(() => { resetView(); render(); });
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    render();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function resetView(){ centerX=-0.5; centerY=0; scale=3; }
+
+  function zoom(factor, x, y){
+    const nx=(x/canvas.width-0.5)*scale+centerX;
+    const ny=(y/canvas.height-0.5)*scale+centerY;
+    centerX=nx+(centerX-nx)*factor;
+    centerY=ny+(centerY-ny)*factor;
+    scale*=factor;
+  }
+
+  let dragging=false; let lastX=0,lastY=0;
+  canvas.addEventListener('mousedown',e=>{dragging=true; lastX=e.clientX; lastY=e.clientY;});
+  window.addEventListener('mouseup',()=>{dragging=false;});
+  window.addEventListener('mousemove',e=>{if(dragging){centerX-=(e.clientX-lastX)/canvas.width*scale; centerY-=(e.clientY-lastY)/canvas.height*scale; lastX=e.clientX; lastY=e.clientY; render();}});
+  canvas.addEventListener('wheel',e=>{e.preventDefault(); zoom(e.deltaY>0?1.2:1/1.2,e.clientX,e.clientY); render();},{passive:false});
+
+  function render(){
+    const w=canvas.width,h=canvas.height;
+    const img=ctx.createImageData(w,h);
+    const data=img.data;
+    const palette=palettes[paletteIndex];
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        let zx=0,zy=0; let cx=(x/w-0.5)*scale+centerX; let cy=(y/h-0.5)*scale+centerY;
+        let iter=0;
+        while(zx*zx+zy*zy<4 && iter<maxIter){ let xt=zx*zx-zy*zy+cx; zy=2*zx*zy+cy; zx=xt; iter++; }
+        const idx=(y*w+x)*4;
+        if(iter==maxIter){ data[idx]=data[idx+1]=data[idx+2]=0; data[idx+3]=255; }
+        else{
+          const c=palette[Math.floor(iter*255/maxIter)];
+          data[idx]=c[0]; data[idx+1]=c[1]; data[idx+2]=c[2]; data[idx+3]=255;
+        }
+      }
+    }
+    ctx.putImageData(img,0,0);
+  }
+})();
+</script>
+</body>
+</html>
